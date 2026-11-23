@@ -1,0 +1,37 @@
+# FULL GRID: base + 8 KROWN arms + 2 Dr.Spider arms + distractor arm, one seed each.
+# Generate the scenarios first: python -m coding_fgf.krown create --rodi-root <RODI> --scenario cmt_renamed --out-root <OUT>
+# Base and perturbed scenarios all run under these same settings, so scores are comparable with each other
+# but not with openai_best_fol_default. Single FOL arm, one codegen sample, smaller matching context.
+# rodi_root is the container path of OUT_ROOT. Mount it with the existing overlay:
+#   DR_SPIDER_DIR=<OUT_ROOT> docker compose -f docker-compose.yml -f docker-compose.dr_spider.yml run --rm fgf-pipeline ...
+rodi_root: /dr_spider
+work: /outputs/krown_full
+scenarios:
+  - cmt_renamed
+  - cmt_renamed__krown_rows_p50
+  - cmt_renamed__krown_rows_p25
+  - cmt_renamed__krown_nulls_p20
+  - cmt_renamed__krown_nulls_p50
+  - cmt_renamed__krown_duplicates_p20
+  - cmt_renamed__krown_duplicates_p50
+  - cmt_renamed__krown_columns_k4
+  - cmt_renamed__krown_columns_k12
+  - cmt_renamed__schema_synonym
+  - cmt_renamed__schema_abbreviation
+  - cmt_renamed__distractor_columns
+fraction: 1.0
+seed: coding-fgf-dev10-v1
+embedding_provider: openai
+embedding_model: text-embedding-3-small
+llm_provider: openai
+llm_model: gpt-5.4-nano-2026-03-17
+k: 8
+match_workers: 4
+codegen_self_consistency: 1
+db_loader: psql
+fol_portfolio: false
+
+retrieval_metric: cosine
+match_candidate_limit: 8
+match_candidate_context: minimal
+match_validation: suspicious

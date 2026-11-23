@@ -1,0 +1,6 @@
+# Overlay for Dr.Spider robustness runs: mounts perturbed RODI scenario copies at /dr_spider.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dr_spider.yml run --rm fgf-pipeline ...
+services:
+  fgf-pipeline:
+    volumes:
+      - ${DR_SPIDER_DIR:-./dr_spider}:/dr_spider:ro

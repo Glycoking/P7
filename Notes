@@ -1,0 +1,19 @@
+How to run FGF:
+1. Open docker
+2. Set terminal to FGF folder: cd /d C:\Users\Lucas\Desktop\P7\P7\FGF
+3. Check docker is working: docker version
+4. Run the command and make sure API key is working: docker compose run --rm --no-deps fgf-pipeline python -c "import os; print('OpenAI API key configured:', bool(os.getenv('OPENAI_API_KEY')))"
+5. Results should be in output
+
+
+2 scenarios:
+docker compose run --rm fgf-pipeline python scripts/run_pipeline.py --config configs/openai_best_fol_default.yaml --scenario cmt_renamed,cmt2sigkdd
+Add more
+
+docker compose run --rm --no-deps fgf-pipeline python scripts/run_failure_analysis.py --metrics /outputs/openai_best_fol_default/runs/cmt_renamed/eval/metrics_details.json --output /outputs/failure_modes_summary.csv
+
+Run spider
+
+docker compose -f docker-compose.yml -f docker-compose.dr_spider.yml run --rm fgf-pipeline python scripts/run_pipeline.py --config configs/openai_best_fol_default.yaml --scenario cmt_renamed --rodi-root /dr_spider
+
+
