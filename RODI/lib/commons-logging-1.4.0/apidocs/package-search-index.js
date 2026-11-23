@@ -1,0 +1,1 @@
+packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"org.apache.commons.logging"},{"l":"org.apache.commons.logging.impl"},{"l":"org.apache.commons.logging.jakarta"}];updateSearchResults();

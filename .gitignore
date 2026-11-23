@@ -2,11 +2,10 @@
 Data/**
 !Data/**/
 !Data/**/.gitkeep
-RODI/**
 FGF-main/**
 FGF/.env
-RODI Manual.pdf
 .vscode/**
+.vscode
 outputs/**
 
 # Environments

@@ -1,0 +1,58 @@
+RODI benchmark distribution, version 2.1
+========================================
+
+2.1 (community update, May 2026)
+--------------------------------
++ fixed additional inconsistencies in query definitions and initialization data
+  - conferences_noFks / conferences_renamed / conferences_structured:
+    * corrected query pairs where SQL COUNT(*) was compared with SPARQL value lists
+  - cmt_structured:
+    * added missing data tuples to satisfy inclusion dependencies required for query Q12
+
+
+2.1 (community update, Feb 2026)
+--------------------------------
++ fixed several small inconsistencies across scenario files to align SQL schemas, SPARQL queries, ontology terms, and initialization data
+  - cmt_denormalized:
+    * Q10/Q38/Q45 referred to non-existent SQL table "Review" → denormalized into "Document" table
+      - extended "Document" table with a denormalized "comment" field (Review column)
+      - updated init data and related queries accordingly
+    * Q28 used SPARQL object :Program_committee (non-existent) and queried SQL column "ProgramCommittee"."label" (non-existent)
+      - corrected SPARQL object to :ProgramCommittee
+      - added missing "label" column to ProgramCommittee SQL table and updated init data
+  - cmt_structured:
+    * Q28: corrected :Program_committee → :ProgramCommittee
+  - conferences_noFks / conferences_renamed / conferences_structured:
+    * Q30: used :has_an_isbn but ontology defines :has_an_ISBN (case mismatch) → fixed
++ added a note that evaluation results may differ slightly from earlier versions (≤ 2.0)
+
+
+2.0 (second public release, Mar 2016)
+-------------------------------------
++ updated documentation
++ added example mappings, sample workflow scripts
++ integrated ontology alignment in evaluation flow
++ fixed minor issues related to reasoning
++ fixed minor errors in scenarios
++ added example evaluation scripts for Unix and Windows
++ improved build processes
+
+1.5 (SWJ paper version, submission)
+-----------------------
++ added cross-matching scenarios (conference domain, only)
++ added "atomic test" coverage scenario for NPD fact sheets (oil & gas domain)
++ added full Mondial scenario (geographical data)
++ improved scoring and score reporting
++ improved reporting format (highlighting scores, adding more drill-down details)
++ incremental evaluation capabilities
++ scenario for incremental multi-source walk-through 
+
+1.0 (first public release)
+--------------------------
++ improved CLI control
++ query fixes
++ added documentation
+
+0.9 (ESWC paper version)
+------------------------
++ initial implementation
