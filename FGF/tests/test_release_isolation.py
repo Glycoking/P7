@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import pytest
 from coding_fgf import cli, fol_ablation, sandbox
+from coding_fgf.cli import portfolio
 from coding_fgf.llm import default_codegen
 from coding_fgf.schema import Table, Column, SqlData
 from coding_fgf.materialize import materialize_graph_with_log, materialize_to_file
@@ -103,7 +104,7 @@ def test_portfolio_selection_is_behaviorally_isolated_from_evaluation(monkeypatc
             assert (work/"selected_fol_arm.json").exists(), "evaluation artifact accessed before selection"
         return original_open(path,*args,**kwargs)
     monkeypatch.setattr(Path,"open",guarded_open)
-    monkeypatch.setattr(cli,"_fol_portfolio_prepare_upstream",lambda **_: ([],{},SqlData(rows={})))
+    monkeypatch.setattr(portfolio,"_fol_portfolio_prepare_upstream",lambda **_: ([],{},SqlData(rows={})))
     def generate(**kwargs):
         arm=kwargs["arm"];generated.append(arm)
         if arm==arms[2]: raise RuntimeError("synthetic failed arm")
@@ -126,10 +127,10 @@ def test_portfolio_selection_is_behaviorally_isolated_from_evaluation(monkeypatc
         assert arm in graph.read_text()
         score=scores[arms.index(arm)]
         return {"precision":score,"recall":score,"f1":score,"count":7}
-    monkeypatch.setattr(cli,"_generate_fol_portfolio_arm",generate)
-    monkeypatch.setattr(cli,"_codegen_and_materialize_with_round2_only_fallback",materialize)
-    monkeypatch.setattr(cli,"_fol_portfolio_record",record)
-    monkeypatch.setattr(cli,"fol_validation_issues",lambda *_: [])
+    monkeypatch.setattr(portfolio,"_generate_fol_portfolio_arm",generate)
+    monkeypatch.setattr(portfolio,"_codegen_and_materialize_with_round2_only_fallback",materialize)
+    monkeypatch.setattr(portfolio,"_fol_portfolio_record",record)
+    monkeypatch.setattr(portfolio,"fol_validation_issues",lambda *_: [])
     monkeypatch.setattr(fol_ablation,"evaluate_graph",evaluate)
     args=cli.build_parser().parse_args(["run-paper-compare","--fol-portfolio","--fol-ablation-report"])
     result=cli._run_fol_portfolio(scenario="mini",dev_root=tmp_path/"data",scenario_work=work,args=args,offline=True)

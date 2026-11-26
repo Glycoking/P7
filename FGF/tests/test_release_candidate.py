@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from coding_fgf import cli, llm, providers
+from coding_fgf.cli import portfolio
 
 
 @pytest.fixture
@@ -150,9 +151,9 @@ def test_every_portfolio_arm_finalizes_target_ids(tmp_path, monkeypatch, arm):
                 "target_id":"class:urn:target:Item", "target_kind":"class"}]
     raw = {"rules":{"class":[{"source_table":"items", "id_columns":["id"],
             "target_class":"class:urn:target:Item", "match_ids":["source-class:items"]}], "data":[], "object":[]}}
-    monkeypatch.setattr(cli, "llm_fol", lambda *a, **k: copy.deepcopy(raw))
-    monkeypatch.setattr(cli, "_copy_frozen_upstream_artifacts", lambda *a: None)
-    monkeypatch.setattr(cli, "_run_fol_single_round2_style_repair", lambda **k: (k["fol"],[],{}))
+    monkeypatch.setattr(portfolio, "llm_fol", lambda *a, **k: copy.deepcopy(raw))
+    monkeypatch.setattr(portfolio, "_copy_frozen_upstream_artifacts", lambda *a: None)
+    monkeypatch.setattr(portfolio, "_run_fol_single_round2_style_repair", lambda **k: (k["fol"],[],{}))
     args = cli.build_parser().parse_args(["run-paper-compare", "--llm-model", "requested"])
     work, fol, issues, _ = cli._generate_fol_portfolio_arm(scenario="synthetic", dev_root=tmp_path,
         scenario_work=tmp_path, arm=arm, matches=matches, tables=tables, data=SqlData(rows={}), args=args, offline=False)

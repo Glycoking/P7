@@ -16,6 +16,7 @@ from coding_fgf.baseline import (
     write_llm4vkg_config,
 )
 from coding_fgf.cli import _fol_repair_acceptance_decision, main
+import coding_fgf.cli.runs as runs_mod
 from coding_fgf.benchmark import record_benchmark_run, summarize_benchmark
 from coding_fgf.compare import compare_runs, compare_to_paper, decide_promotion
 from coding_fgf.llm import (
@@ -562,9 +563,9 @@ def test_run_one_benchmark_refuses_live_when_tests_fail(monkeypatch) -> None:
     class FailedTests:
         returncode = 1
 
-    monkeypatch.setattr(cli.subprocess, "run", lambda *args, **kwargs: FailedTests())
-    monkeypatch.setattr(cli, "cmd_run_dev10", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("offline smoke should not run")))
-    monkeypatch.setattr(cli, "cmd_run_paper_compare", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("live run should not run")))
+    monkeypatch.setattr(runs_mod.subprocess, "run", lambda *args, **kwargs: FailedTests())
+    monkeypatch.setattr(runs_mod, "cmd_run_dev10", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("offline smoke should not run")))
+    monkeypatch.setattr(runs_mod, "cmd_run_paper_compare", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("live run should not run")))
 
     try:
         main(["run-one-benchmark", "--scenario", "mini", "--benchmark-root", str(root / "bench"), "--rodi-root", str(root / "rodi")])
@@ -597,11 +598,11 @@ def test_run_paper_compare_cli_smoke_without_live_openai(monkeypatch) -> None:
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(
-        cli,
+        runs_mod,
         "load_postgres_dumps",
         lambda *args, **kwargs: [{"scenario": "mini", "step": "load_dump", "returncode": 0}],
     )
-    monkeypatch.setattr(cli, "execute_sql_psycopg2", lambda *args, **kwargs: ["ada@example.org"])
+    monkeypatch.setattr(runs_mod, "execute_sql_psycopg2", lambda *args, **kwargs: ["ada@example.org"])
 
     main(
         [
