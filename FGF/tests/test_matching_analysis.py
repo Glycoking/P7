@@ -553,7 +553,10 @@ def test_analysis_module_does_not_import_generation_or_materialization() -> None
 
 
 def test_existing_llm_module_does_not_import_analysis() -> None:
-    module_text = Path("coding_fgf/llm.py").read_text(encoding="utf-8")
+    # llm is a package now; check every module in it
+    module_text = "\n".join(
+        path.read_text(encoding="utf-8") for path in sorted(Path("coding_fgf/llm").glob("*.py"))
+    )
     assert "coding_fgf.analysis" not in module_text
 
 
