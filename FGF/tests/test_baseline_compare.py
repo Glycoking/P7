@@ -17,6 +17,7 @@ from coding_fgf.baseline import (
 )
 from coding_fgf.cli import _fol_repair_acceptance_decision, main
 import coding_fgf.cli.runs as runs_mod
+from llm_guard import patch_llm
 from coding_fgf.benchmark import record_benchmark_run, summarize_benchmark
 from coding_fgf.compare import compare_runs, compare_to_paper, decide_promotion
 from coding_fgf.llm import (
@@ -648,7 +649,6 @@ def test_live_matching_uses_one_compact_request_per_source(monkeypatch) -> None:
     ]
     prompts: list[str] = []
 
-    import coding_fgf.llm as llm_module
 
     def fake_call(prompt: str, schema_name: str, requested_model: str, fallback_model: str | None, **kwargs) -> dict[str, object]:
         prompts.append(prompt)
@@ -668,7 +668,7 @@ def test_live_matching_uses_one_compact_request_per_source(monkeypatch) -> None:
         }
 
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-    monkeypatch.setattr(llm_module, "call_structured_json", fake_call)
+    patch_llm(monkeypatch, "call_structured_json", fake_call)
 
     matches = llm_match(rows, offline=False)
 
@@ -689,9 +689,7 @@ def test_live_matching_thread_pool_preserves_order_and_events(monkeypatch) -> No
         }
         for i in range(4)
     ]
-    import coding_fgf.llm as llm_module
-
-    real_executor = llm_module.ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor as real_executor  # the class llm.matching binds
     worker_counts: list[int | None] = []
 
     class RecordingExecutor(real_executor):  # type: ignore[misc]
@@ -717,8 +715,8 @@ def test_live_matching_thread_pool_preserves_order_and_events(monkeypatch) -> No
 
     clear_llm_events()
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-    monkeypatch.setattr(llm_module, "ThreadPoolExecutor", RecordingExecutor)
-    monkeypatch.setattr(llm_module, "call_structured_json", fake_call)
+    patch_llm(monkeypatch, "ThreadPoolExecutor", RecordingExecutor)
+    patch_llm(monkeypatch, "call_structured_json", fake_call)
 
     matches = llm_match(rows, offline=False, max_workers=4)
 
@@ -738,14 +736,13 @@ def test_live_matching_no_api_fallback_on_call_error(monkeypatch) -> None:
         "source": {"id": "source-class:t", "kind": "class", "uri": "urn:s", "text": "source"},
         "candidates": [{"id": "class:http://ex#T", "kind": "class", "uri": "http://ex#T", "text": "target"}],
     }
-    import coding_fgf.llm as llm_module
 
     def fail_call(prompt: str, schema_name: str, requested_model: str, fallback_model: str | None, **kwargs) -> dict[str, object]:
         raise RuntimeError("api pressure")
 
     monkeypatch.setenv("OPENAI_API_KEY", "test")
     monkeypatch.setenv("CODING_FGF_API_MAX_ATTEMPTS", "1")
-    monkeypatch.setattr(llm_module, "call_structured_json", fail_call)
+    patch_llm(monkeypatch, "call_structured_json", fail_call)
 
     with pytest.raises(RuntimeError, match="api pressure"):
         llm_match([row], offline=False, max_workers=1)
@@ -756,7 +753,6 @@ def test_live_matching_bounds_invalid_model_output_retries(monkeypatch) -> None:
         "source": {"id": "source-class:t", "kind": "class", "uri": "urn:s", "text": "source"},
         "candidates": [{"id": "class:http://ex#T", "kind": "class", "uri": "http://ex#T", "text": "target"}],
     }
-    import coding_fgf.llm as llm_module
 
     calls = 0
 
@@ -768,7 +764,7 @@ def test_live_matching_bounds_invalid_model_output_retries(monkeypatch) -> None:
     clear_llm_events()
     monkeypatch.setenv("OPENAI_API_KEY", "test")
     monkeypatch.setenv("CODING_FGF_MODEL_OUTPUT_MAX_ATTEMPTS", "2")
-    monkeypatch.setattr(llm_module, "call_structured_json", invalid_call)
+    patch_llm(monkeypatch, "call_structured_json", invalid_call)
 
     matches, used_fallback = _match_one_live(row, fail_on_invalid=False)
 
@@ -787,7 +783,6 @@ def test_live_matching_progress_logs(monkeypatch) -> None:
         }
         for i in range(3)
     ]
-    import coding_fgf.llm as llm_module
 
     def fake_call(prompt: str, schema_name: str, requested_model: str, fallback_model: str | None, **kwargs) -> dict[str, object]:
         payload = json.loads(prompt.split("\n\n", 1)[1])
@@ -796,7 +791,7 @@ def test_live_matching_progress_logs(monkeypatch) -> None:
 
     logs: list[str] = []
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-    monkeypatch.setattr(llm_module, "call_structured_json", fake_call)
+    patch_llm(monkeypatch, "call_structured_json", fake_call)
 
     llm_match(rows, offline=False, max_workers=2, progress_logger=logs.append, progress_interval_seconds=0, progress_every=2)
 
@@ -832,14 +827,13 @@ def test_deterministic_pre_repair_skips_live_api(monkeypatch) -> None:
             {"id": "class:http://cmt#Conference", "kind": "class", "uri": "http://cmt#Conference", "local_name": "Conference"},
         ],
     }
-    import coding_fgf.llm as llm_module
 
     def fail_call(prompt: str, schema_name: str, requested_model: str, fallback_model: str | None, **kwargs) -> dict[str, object]:
         raise AssertionError("live API should be skipped for deterministic repair")
 
     logs: list[str] = []
     monkeypatch.setenv("OPENAI_API_KEY", "test")
-    monkeypatch.setattr(llm_module, "call_structured_json", fail_call)
+    patch_llm(monkeypatch, "call_structured_json", fail_call)
 
     matches = llm_match([row], offline=False, progress_logger=logs.append, allow_deterministic_repair=True)
 

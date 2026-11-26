@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from coding_fgf import cli, fol_ablation, sandbox
 from coding_fgf.cli import portfolio
+from llm_guard import patch_llm
 from coding_fgf.llm import default_codegen
 from coding_fgf.schema import Table, Column, SqlData
 from coding_fgf.materialize import materialize_graph_with_log, materialize_to_file
@@ -161,7 +162,7 @@ def test_offline_portfolio_runs_without_live_repair_calls(tmp_path,monkeypatch):
     write_fixture(tmp_path/"data")
     def forbidden(*a,**k):
         raise AssertionError("offline execution attempted a live provider call")
-    monkeypatch.setattr(llm,"call_structured_json",forbidden)
+    patch_llm(monkeypatch, "call_structured_json", forbidden)
     monkeypatch.setattr(providers,"structured_generate",forbidden)
     work=tmp_path/"out"
     cli.main(["run-paper-compare","--rodi-root",str(tmp_path),"--work",str(work),

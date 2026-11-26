@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace as NS
 from unittest.mock import Mock
 import pytest
+from llm_guard import patch_llm
 from coding_fgf import providers, google_vertex, embeddings
 from coding_fgf.analysis import matching_analysis as matching
 
@@ -172,9 +173,9 @@ def test_validation_retries_are_independent_of_transport_budget(monkeypatch):
     from coding_fgf import llm
     monkeypatch.setenv("CODING_FGF_API_MAX_ATTEMPTS","1")
     monkeypatch.setenv("CODING_FGF_MODEL_OUTPUT_MAX_ATTEMPTS","3")
-    monkeypatch.setattr(llm,"_sleep_before_retry",lambda *a: None)
+    patch_llm(monkeypatch, "_sleep_before_retry", lambda *a: None)
     request=Mock(side_effect=[{}, {}, {"code":"def materialize(context): pass"}])
-    monkeypatch.setattr(llm,"call_structured_json",request)
+    patch_llm(monkeypatch, "call_structured_json", request)
     assert llm.llm_codegen({"rules":{}})=="def materialize(context): pass"
     assert request.call_count==3
 

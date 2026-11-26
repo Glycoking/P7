@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from llm_guard import patch_llm
 from rdflib import Graph, Literal, RDF, URIRef
 
 import coding_fgf.cli as cli_mod
@@ -515,7 +516,7 @@ def test_llm_fol_filters_chunk_context_and_object_evidence(monkeypatch: pytest.M
         return {"rules": {"class": [], "data": [], "object": []}}
 
     monkeypatch.setenv("CODING_FGF_FOL_MATCHES_PER_CALL", "1")
-    monkeypatch.setattr("coding_fgf.llm.call_structured_json", fake_call)
+    patch_llm(monkeypatch, "call_structured_json", fake_call)
 
     result = llm_fol(matches, tables, object_link_evidence=evidence, few_shot_examples=True)
 
