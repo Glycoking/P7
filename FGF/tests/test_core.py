@@ -7,9 +7,13 @@ import shutil
 from pathlib import Path
 
 import pytest
+from llm_guard import patch_llm
 from rdflib import Graph, Literal, RDF, URIRef
 
 import coding_fgf.cli as cli_mod
+import coding_fgf.cli.codegen as codegen_mod
+import coding_fgf.cli.fol_repair as fol_repair_mod
+import coding_fgf.cli.stages as stages_mod
 from coding_fgf.attribute_coverage import (
     apply_attribute_coverage_repairs,
     attribute_coverage_diagnostics,
@@ -512,7 +516,7 @@ def test_llm_fol_filters_chunk_context_and_object_evidence(monkeypatch: pytest.M
         return {"rules": {"class": [], "data": [], "object": []}}
 
     monkeypatch.setenv("CODING_FGF_FOL_MATCHES_PER_CALL", "1")
-    monkeypatch.setattr("coding_fgf.llm.call_structured_json", fake_call)
+    patch_llm(monkeypatch, "call_structured_json", fake_call)
 
     result = llm_fol(matches, tables, object_link_evidence=evidence, few_shot_examples=True)
 
@@ -897,9 +901,9 @@ def test_single_round2_style_repair_uses_one_round2_call_and_skips_old_repair(mo
             ],
         }
 
-    monkeypatch.setattr(cli_mod, "llm_repair_fol_round2", fake_round2)
-    monkeypatch.setattr(cli_mod, "llm_repair_fol", lambda *args, **kwargs: pytest.fail("old round-1 repair called"))
-    monkeypatch.setattr(cli_mod, "llm_repair_object_fol", lambda *args, **kwargs: pytest.fail("targeted object repair called"))
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol_round2", fake_round2)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol", lambda *args, **kwargs: pytest.fail("old round-1 repair called"))
+    monkeypatch.setattr(stages_mod, "llm_repair_object_fol", lambda *args, **kwargs: pytest.fail("targeted object repair called"))
 
     repaired, final_issues, summary = _run_fol_single_round2_style_repair(
         work=tmp_path,
@@ -953,7 +957,7 @@ def test_single_round2_style_repair_falls_back_on_error(monkeypatch: pytest.Monk
     def fail_round2(*args: object, **kwargs: object) -> dict[str, object]:
         raise ValueError("invalid repair json")
 
-    monkeypatch.setattr(cli_mod, "llm_repair_fol_round2", fail_round2)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol_round2", fail_round2)
 
     repaired, final_issues, summary = _run_fol_single_round2_style_repair(
         work=tmp_path,
@@ -1017,9 +1021,9 @@ def test_single_round2_style_repair_falls_back_when_diagnostics_worsen(monkeypat
             ],
         }
 
-    monkeypatch.setattr(cli_mod, "llm_repair_fol_round2", worse_round2)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol_round2", worse_round2)
     monkeypatch.setattr(
-        cli_mod,
+        fol_repair_mod,
         "_all_fol_issues",
         lambda *args, **kwargs: (
             issues + [{"rule_id": "data:0", "issue": "extra_validator_issue"}],
@@ -1094,8 +1098,8 @@ def test_standard_repair_uses_global_context_by_default(monkeypatch: pytest.Monk
         calls["round2"] += 1
         raise AssertionError("round2 repair should not run in global standard mode")
 
-    monkeypatch.setattr(cli_mod, "llm_repair_fol", fake_global)
-    monkeypatch.setattr(cli_mod, "llm_repair_fol_round2", fail_round2)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol", fake_global)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol_round2", fail_round2)
 
     repaired, final_issues, report = _run_fol_standard_repair(
         work=tmp_path,
@@ -1176,8 +1180,8 @@ def test_batched_standard_repair_uses_scoped_round2_context(monkeypatch: pytest.
             ],
         }
 
-    monkeypatch.setattr(cli_mod, "llm_repair_fol", fail_global)
-    monkeypatch.setattr(cli_mod, "llm_repair_fol_round2", fake_round2)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol", fail_global)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol_round2", fake_round2)
 
     repaired, final_issues, report = _run_fol_standard_repair(
         work=tmp_path,
@@ -1261,20 +1265,22 @@ def test_stage_fol_targeted_object_repair_uses_batched_context_when_requested(
     }
     calls = {"round2": 0}
 
-    monkeypatch.setattr(cli_mod, "parse_sql_dump", lambda path: tables)
-    monkeypatch.setattr(cli_mod, "parse_copy_data", lambda path: SqlData({"papers": [], "persons": []}))
-    monkeypatch.setattr(cli_mod, "reask_suspicious_matches", lambda *args, **kwargs: (matches, []))
-    monkeypatch.setattr(cli_mod, "build_discriminator_candidate_rows", lambda *args, **kwargs: [])
-    monkeypatch.setattr(cli_mod, "build_object_link_evidence", lambda *args, **kwargs: {"legal_plans": []})
-    monkeypatch.setattr(cli_mod, "llm_fol", lambda *args, **kwargs: fol)
+    monkeypatch.setattr(stages_mod, "parse_sql_dump", lambda path: tables)
+    monkeypatch.setattr(stages_mod, "parse_copy_data", lambda path: SqlData({"papers": [], "persons": []}))
+    monkeypatch.setattr(stages_mod, "reask_suspicious_matches", lambda *args, **kwargs: (matches, []))
+    monkeypatch.setattr(stages_mod, "build_discriminator_candidate_rows", lambda *args, **kwargs: [])
+    monkeypatch.setattr(stages_mod, "build_object_link_evidence", lambda *args, **kwargs: {"legal_plans": []})
+    monkeypatch.setattr(stages_mod, "llm_fol", lambda *args, **kwargs: fol)
     monkeypatch.setattr(
-        cli_mod,
+        stages_mod,
         "llm_repair_object_fol",
         lambda *args, **kwargs: pytest.fail("global targeted object repair should not run"),
     )
 
     issue_calls = iter([(object_issue, {}), ([], {})])
-    monkeypatch.setattr(cli_mod, "_all_fol_issues", lambda *args, **kwargs: next(issue_calls))
+    next_issues = lambda *args, **kwargs: next(issue_calls)
+    monkeypatch.setattr(stages_mod, "_all_fol_issues", next_issues)
+    monkeypatch.setattr(fol_repair_mod, "_all_fol_issues", next_issues)
 
     def fake_round2(*args: object, **kwargs: object) -> dict[str, object]:
         calls["round2"] += 1
@@ -1292,7 +1298,7 @@ def test_stage_fol_targeted_object_repair_uses_batched_context_when_requested(
             ],
         }
 
-    monkeypatch.setattr(cli_mod, "llm_repair_fol_round2", fake_round2)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol_round2", fake_round2)
 
     cli_mod.stage_fol(
         "toy",
@@ -1350,8 +1356,8 @@ def test_round2_only_runtime_failure_restores_pre_repair_fol(monkeypatch: pytest
         Path(output).write_text("@prefix ex: <http://example.org/> .\n", encoding="utf-8")
         return Path(output)
 
-    monkeypatch.setattr(cli_mod, "stage_codegen", fake_codegen)
-    monkeypatch.setattr(cli_mod, "materialize_to_file", fake_materialize)
+    monkeypatch.setattr(codegen_mod, "stage_codegen", fake_codegen)
+    monkeypatch.setattr(codegen_mod, "materialize_to_file", fake_materialize)
 
     summary = _codegen_and_materialize_with_round2_only_fallback(
         scenario="toy",
@@ -1391,8 +1397,8 @@ def test_apply_standard_then_round2_arm_invokes_round1_then_round2(monkeypatch: 
         assert kwargs["issues_after_round1"] == round1_issues
         return round2_fol, [], {"repair_round2_attempted": True, "repair_round2_accepted": True}
 
-    monkeypatch.setattr(cli_mod, "_run_fol_standard_repair", fake_standard)
-    monkeypatch.setattr(cli_mod, "_run_fol_repair_round2", fake_round2)
+    monkeypatch.setattr(fol_repair_mod, "_run_fol_standard_repair", fake_standard)
+    monkeypatch.setattr(fol_repair_mod, "_run_fol_repair_round2", fake_round2)
 
     fol, issues, report = _apply_fol_repair_arm(
         arm="standard_then_round2",
@@ -1536,8 +1542,8 @@ def test_pre_repair_preserved_arm_skips_llm_and_uses_frozen_fol(monkeypatch: pyt
     def fail_repair(*args: object, **kwargs: object) -> None:
         raise AssertionError("pre_repair_preserved must not invoke LLM repair")
 
-    monkeypatch.setattr(cli_mod, "llm_repair_fol", fail_repair)
-    monkeypatch.setattr(cli_mod, "llm_repair_fol_round2", fail_repair)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol", fail_repair)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_fol_round2", fail_repair)
 
     fol, issues, report = _apply_fol_repair_arm(
         arm="pre_repair_preserved",
@@ -1743,7 +1749,7 @@ def test_attribute_coverage_stage_accepts_fk_like_literal_drop(monkeypatch: pyte
             "generation": {"source": "test"},
         }
 
-    monkeypatch.setattr(cli_mod, "llm_repair_attribute_coverage", fake_repair)
+    monkeypatch.setattr(fol_repair_mod, "llm_repair_attribute_coverage", fake_repair)
 
     repaired, summary = cli_mod._run_attribute_coverage_stage(
         work=work,
@@ -2370,7 +2376,7 @@ def test_codegen_runtime_selection_prefers_complete_executing_candidate(monkeypa
     def fake_codegen(*args, **kwargs):
         return generated.pop(0) if generated else default_codegen()
 
-    monkeypatch.setattr("coding_fgf.cli.llm_codegen", fake_codegen)
+    monkeypatch.setattr("coding_fgf.cli.codegen.llm_codegen", fake_codegen)
     code, audit = _codegen_self_consistent(
         tmp_path,
         fol,

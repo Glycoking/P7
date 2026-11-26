@@ -8,6 +8,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "tests"), str(ROOT / "scripts")]
 from test_core import write_fixture
+from llm_guard import patch_llm_everywhere
 from coding_fgf.cli import main
 from run_failure_analysis import summarize
 
@@ -24,7 +25,7 @@ def run():
                 "--fol-portfolio", "--fol-ablation-report",
                 "--db-host", os.getenv("DB_HOST", "smoke-postgres"),
                 "--db-user", "postgres", "--db-password", "postgres"]
-        with patch("openai.OpenAI", forbidden), patch("coding_fgf.llm.call_structured_json", forbidden), patch("coding_fgf.google_vertex._post_vertex", forbidden):
+        with patch("openai.OpenAI", forbidden), patch_llm_everywhere("call_structured_json", forbidden), patch("coding_fgf.google_vertex._post_vertex", forbidden):
             try:
                 main(args)
             except Exception:

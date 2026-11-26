@@ -7,6 +7,8 @@ from unittest.mock import Mock
 import pytest
 
 from coding_fgf import cli, llm, providers
+from coding_fgf.cli import portfolio
+from llm_guard import patch_llm
 
 
 @pytest.fixture
@@ -26,13 +28,13 @@ def decision(candidate, **changes):
 @pytest.fixture(autouse=True)
 def no_wait(monkeypatch):
     monkeypatch.setenv("CODING_FGF_MODEL_OUTPUT_MAX_ATTEMPTS", "2")
-    monkeypatch.setattr(llm, "_sleep_before_retry", Mock())
+    patch_llm(monkeypatch, "_sleep_before_retry", Mock())
 
 
 @pytest.mark.parametrize("provider", ["openai", "google"])
 def test_wrong_source_id_gets_specific_feedback_and_request_schema(monkeypatch, candidate, provider):
     call = Mock(side_effect=[decision(candidate, source_id="object_property:urn:source:items#owner"), decision(candidate)])
-    monkeypatch.setattr(llm, "call_structured_json", call)
+    patch_llm(monkeypatch, "call_structured_json", call)
     rows, _ = llm._match_one_live(candidate, provider=provider)
     assert rows[0].source_id == candidate["source"]["id"]
     assert call.call_count == 2
@@ -50,7 +52,7 @@ def test_wrong_source_id_gets_specific_feedback_and_request_schema(monkeypatch, 
 ])
 def test_inconsistent_match_is_not_accepted(monkeypatch, candidate, bad):
     call = Mock(return_value=decision(candidate, **bad))
-    monkeypatch.setattr(llm, "call_structured_json", call)
+    patch_llm(monkeypatch, "call_structured_json", call)
     with pytest.raises(RuntimeError, match="no valid match"):
         llm._match_one_live(candidate)
     assert call.call_count == 2
@@ -63,7 +65,7 @@ def test_exactly_one_decision_required(monkeypatch, candidate, shape):
     if shape == "missing": data["matches"] = []
     if shape == "wrong_type": data["matches"] = ["not a match"]
     call = Mock(return_value=data)
-    monkeypatch.setattr(llm, "call_structured_json", call)
+    patch_llm(monkeypatch, "call_structured_json", call)
     with pytest.raises(RuntimeError, match="no valid match"):
         llm._match_one_live(candidate)
     assert call.call_count == 2
@@ -71,7 +73,7 @@ def test_exactly_one_decision_required(monkeypatch, candidate, shape):
 
 def test_valid_abstention_is_one_successful_request(monkeypatch, candidate):
     call = Mock(return_value=decision(candidate, target_uri=None, target_id=None))
-    monkeypatch.setattr(llm, "call_structured_json", call)
+    patch_llm(monkeypatch, "call_structured_json", call)
     rows, _ = llm._match_one_live(candidate)
     assert rows[0].target_uri is None and call.call_count == 1
 
@@ -135,7 +137,7 @@ def test_model_defaults_are_consistent():
 def test_semantic_review_repairs_contract_errors(monkeypatch, candidate, provider):
     source = decision(candidate)["matches"][0]
     call = Mock(side_effect=[decision(candidate, source_id="wrong"), decision(candidate)])
-    monkeypatch.setattr(llm, "call_structured_json", call)
+    patch_llm(monkeypatch, "call_structured_json", call)
     reviewed, report = llm.review_all_matches([source], [candidate], {}, provider=provider)
     assert reviewed[0]["source_id"] == source["source_id"] and call.call_count == 2
     assert "source_id_mismatch" in call.call_args.args[0]
@@ -150,9 +152,9 @@ def test_every_portfolio_arm_finalizes_target_ids(tmp_path, monkeypatch, arm):
                 "target_id":"class:urn:target:Item", "target_kind":"class"}]
     raw = {"rules":{"class":[{"source_table":"items", "id_columns":["id"],
             "target_class":"class:urn:target:Item", "match_ids":["source-class:items"]}], "data":[], "object":[]}}
-    monkeypatch.setattr(cli, "llm_fol", lambda *a, **k: copy.deepcopy(raw))
-    monkeypatch.setattr(cli, "_copy_frozen_upstream_artifacts", lambda *a: None)
-    monkeypatch.setattr(cli, "_run_fol_single_round2_style_repair", lambda **k: (k["fol"],[],{}))
+    monkeypatch.setattr(portfolio, "llm_fol", lambda *a, **k: copy.deepcopy(raw))
+    monkeypatch.setattr(portfolio, "_copy_frozen_upstream_artifacts", lambda *a: None)
+    monkeypatch.setattr(portfolio, "_run_fol_single_round2_style_repair", lambda **k: (k["fol"],[],{}))
     args = cli.build_parser().parse_args(["run-paper-compare", "--llm-model", "requested"])
     work, fol, issues, _ = cli._generate_fol_portfolio_arm(scenario="synthetic", dev_root=tmp_path,
         scenario_work=tmp_path, arm=arm, matches=matches, tables=tables, data=SqlData(rows={}), args=args, offline=False)
@@ -185,7 +187,7 @@ def test_semantic_heuristic_is_recorded_without_rejecting_valid_contract(monkeyp
     from dataclasses import asdict
     initial=asdict(initial)
     assert "fk_column_mapped_to_context_mismatched_identifier_property" in llm.match_validation_issues(initial,tables)
-    call=Mock(return_value=response);monkeypatch.setattr(llm,"call_structured_json",call)
+    call=Mock(return_value=response);patch_llm(monkeypatch, "call_structured_json", call)
     reviewed,report=llm.review_all_matches([initial],[row],tables,provider=provider)
     assert reviewed[0]["target_uri"]=="urn:identifier" and call.call_count==1
     assert "fk_column_mapped_to_context_mismatched_identifier_property" in report[0]["semantic_warnings"]
@@ -196,7 +198,7 @@ def test_semantic_review_still_rejects_structural_kind_mismatch(monkeypatch):
         {"id":"object_property:urn:related","uri":"urn:related","kind":"object_property"}]}
     response={"matches":[{"source_id":"source-class:items","target_uri":"urn:related",
         "target_id":"object_property:urn:related","confidence":.8,"reason":"test"}]}
-    call=Mock(return_value=response);monkeypatch.setattr(llm,"call_structured_json",call)
+    call=Mock(return_value=response);patch_llm(monkeypatch, "call_structured_json", call)
     with pytest.raises(RuntimeError,match="Semantic validation"):
         llm.review_all_matches(response["matches"],[row],{})
     assert call.call_count==2
@@ -244,7 +246,7 @@ def test_semantic_validation_reviews_a_null_decision(monkeypatch):
     def call(*args,**kwargs):
         calls.append(args)
         return {"matches":[{"source_id":"source-class:collectives","target_uri":"urn:Collective","confidence":.8,"reason":"Supplied group label"}]}
-    monkeypatch.setattr(llm,"_call_json_for_provider",call)
+    patch_llm(monkeypatch, "_call_json_for_provider", call)
     out,report=llm.reask_suspicious_matches([{"source_id":"source-class:collectives","target_uri":None}], [row], {})
     assert len(calls)==1 and out[0]["target_uri"]=="urn:Collective"
     assert report[0]["before"]["target_uri"] is None
